@@ -36,9 +36,7 @@ struct ContentView: View {
             case .schedule:
                 ScheduleView()
             case .score:
-                Text("🎓 成绩查询功能开发中...")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+                GradeView()
             case .profile:
                 LoginView() // 👈 这里换成了刚才写好的登录界面！
             case .none:
