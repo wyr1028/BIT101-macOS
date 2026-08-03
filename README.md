@@ -1,2 +1,4 @@
 # BIT101-macOS
-尝试制作一个macOS上的BIT101
+尝试制作一个macOS上的BIT101。
+//
+借助gemini做的。
