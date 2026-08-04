@@ -154,7 +154,7 @@ class NetworkManager: ObservableObject {
     // MARK: - 3. 成绩查询
     
     func fetchScores() async throws -> [[String]] {
-        guard let url = URL(string: "\(baseURL)/score") else {
+        guard let url = URL(string: "\(baseURL)/score?detail=true") else {
             throw URLError(.badURL)
         }
         
@@ -203,6 +203,7 @@ class NetworkManager: ObservableObject {
         let events: [iCalEvent]
         let firstDay: Date
         let term: String
+        let icalURL: String
     }
     
     func fetchSchedule(term: String? = nil) async throws -> ScheduleResult {
@@ -258,7 +259,7 @@ class NetworkManager: ObservableObject {
         // 从 note 提取学期信息
         let term = scheduleResult.note ?? ""
         
-        return ScheduleResult(events: events, firstDay: firstDay, term: term)
+        return ScheduleResult(events: events, firstDay: firstDay, term: term, icalURL: icalURLString)
     }
     
     // MARK: - 5. 检查登录状态

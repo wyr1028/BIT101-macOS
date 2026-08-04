@@ -23,8 +23,9 @@ struct ContentView: View {
         var id: String { rawValue }
         var icon: String {
             switch self {
-            case .schedule:"calendar";case .ddl:"clock";case .exam:"pencil.and.list.clipboard"
-            case .emptyRoom:"door.left.hand.open";case .map:"map"
+            case .schedule:"calendar";case .ddl:"clock"
+            case .exam:"pencil.and.list.clipboard";case .emptyRoom:"door.left.hand.open"
+            case .map:"map"
             case .grades:"chart.bar.doc.horizontal";case .courses:"star"
             case .gallery:"bubble.left.and.bubble.right";case .papers:"doc.richtext"
             case .messages:"envelope";case .profile:"person.crop.circle"
@@ -84,6 +85,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func detailView(for item: NavItem) -> some View {
+        Group {
         switch item {
         case .schedule:  ScheduleView()
         case .ddl:       DDLView()
@@ -96,6 +98,38 @@ struct ContentView: View {
         case .papers:    ArticleView()
         case .messages:  MessagesView()
         case .profile:   ProfileView()
+        }
+        }
+        .toolbar {
+            ToolbarItem {
+                Menu {
+                    Button("在新窗口打开") { openInNewWindow(item) }
+                    if item == .schedule {
+                        Button("本周课程浮窗") { showWeekWidget() }
+                    }
+                } label: { Image(systemName: "ellipsis.circle") }
+            }
+        }
+    }
+
+    func openInNewWindow(_ item: NavItem) {
+        let title = item.rawValue
+        openDetailWindow(title: title, width: 680, height: 520) {
+            switch item {
+            case .schedule:  ScheduleView()
+            case .grades:    GradeView()
+            case .gallery:   TopicView()
+            case .papers:    ArticleView()
+            case .map:       MapView()
+            case .courses:   CourseReviewView()
+            default:         Text(item.rawValue)
+            }
+        }
+    }
+
+    func showWeekWidget() {
+        openDetailWindow(title: "本周课程", width: 320, height: 420) {
+            ThisWeekView()
         }
     }
 }

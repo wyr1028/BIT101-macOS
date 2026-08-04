@@ -11,6 +11,7 @@ struct ProfileView: View {
     @State private var showEditor = false; @State private var editNick = ""
     @State private var editMotto = ""; @State private var saving = false
     @AppStorage("colorScheme") private var scheme = "system"
+    @AppStorage("notifyEnabled") private var notifyEnabled = true
 
     var body: some View {
         ScrollView {
@@ -68,6 +69,14 @@ struct ProfileView: View {
                     }
                     .padding(.vertical, 12).padding(.horizontal, 14)
 
+                    Divider().padding(.leading, 40)
+                    HStack {
+                        Image(systemName: "bell.fill").frame(width: 22).foregroundColor(.orange)
+                        Text("课程提醒与静音").font(.body)
+                        Spacer()
+                        Toggle("", isOn: $notifyEnabled).toggleStyle(.switch).controlSize(.small)
+                    }
+                    .padding(.vertical, 9).padding(.horizontal, 14)
                     Divider().padding(.leading, 40)
                     SettingsBtn(icon: "person.2", title: "关注 / 粉丝") {}
                     Divider().padding(.leading, 40)

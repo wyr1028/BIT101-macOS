@@ -6,6 +6,7 @@ struct ScoreRecord: Identifiable {
     let score: Double; let scoreText: String
     let gpa: Double; let gpaText: String
     let semester: String; let isNormal: Bool; let valid: Bool
+    let avgScore: Double?   // 全班平均分
 }
 
 struct GradeView: View {
@@ -14,6 +15,7 @@ struct GradeView: View {
     @State private var loading = false; @State private var err: String?
     @State private var sems: [String] = []; @State private var picked: Set<String> = []
     @State private var historyAvg: Double?; @State private var historyGPA: Double?
+    @State private var showTrend = false
 
     private var shown: [ScoreRecord] { picked.isEmpty ? all : all.filter { picked.contains($0.semester) } }
     private var validRecords: [ScoreRecord] { shown.filter(\.valid) }
@@ -34,6 +36,11 @@ struct GradeView: View {
             }
         }
         .navigationTitle("成绩")
+        .toolbar {
+            ToolbarItem { Button { exportGradesToPDF(records: shown) } label: { Label("导出PDF", systemImage: "arrow.down.doc") } }
+            ToolbarItem { Button { showTrend = true } label: { Label("趋势", systemImage: "chart.line.uptrend.xyaxis") } }
+        }
+        .sheet(isPresented: $showTrend) { GradeTrendSheet(records: shown) }
         .task { if net.isLoggedIn && all.isEmpty { await load() } }
         .onChange(of: picked) { _, _ in Task { await loadHistory() } }
     }
@@ -107,6 +114,9 @@ struct GradeView: View {
                 col(String(format:"%.0f",r.credit), "学分")
                 col(r.scoreText, "成绩", r.score>0 ? scC(r.score) : .secondary)
                 col(r.gpaText, "绩点", r.gpa>0 ? gpC(r.gpa) : .secondary)
+                if let av = r.avgScore {
+                    col(String(format:"%.0f",av), "均分", .purple)
+                }
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
@@ -166,7 +176,7 @@ func parse(_ t: [[String]]) -> [ScoreRecord] {
     let ci=cx(h,["课程编号","课程号","KCH"]),ni=cx(h,["课程名称","课程名","KCM"])
     let ri=cx(h,["学分","XF"]),si=cx(h,["成绩","总成绩","综合成绩","CJ","ZCJ"])
     let gi=cx(h,["绩点","GPA","JD","绩点系数"]),mi=cx(h,["开课学期","学期","XNXQ"])
-    let ti=cx(h,["成绩标识","标识"])
+    let ti=cx(h,["成绩标识","标识"]),ai=cx(h,["平均分"])
     var rec=[ScoreRecord]()
     for row in t.dropFirst() {
         func s(_ i: Int?) -> String { guard let i=i,i<row.count else{return""}; return row[i].trimmingCharacters(in:.whitespaces) }
@@ -178,10 +188,26 @@ func parse(_ t: [[String]]) -> [ScoreRecord] {
         let ok = (!tag.contains("补考")) && (!tag.contains("重修")) && (!tag.contains("缓考"))
         let scText=sc>=0 ? String(format:"%.0f",sc) : (s(si).isEmpty ? "--":s(si))
         let gpText=gp>=0 ? String(format:"%.1f",gp) : (gi != nil ? s(gi) : "--")
-        let nm=s(ni)
-        rec.append(ScoreRecord(number:s(ci),name:nm.isEmpty ? (row.first ?? ""):nm,credit:cr,score:max(sc,0),scoreText:scText,gpa:max(gp,0),gpaText:gpText,semester:s(mi),isNormal:ok,valid:cr>0&&ok&&sc>=0))
+        let nm=s(ni); let av = Double(s(ai)).flatMap { $0 > 0 ? $0 : nil }
+        rec.append(ScoreRecord(number:s(ci),name:nm.isEmpty ? (row.first ?? ""):nm,credit:cr,score:max(sc,0),scoreText:scText,gpa:max(gp,0),gpaText:gpText,semester:s(mi),isNormal:ok,valid:cr>0&&ok&&sc>=0,avgScore:av))
     }
     return rec
 }
 func cx(_ h: [String], _ kw: [String]) -> Int? { for k in kw { for(i,x) in h.enumerated() { if x.contains(k) { return i } } }; return nil }
 func gpaCalc(_ s: Double) -> Double { if s>=90{4.0}else if s>=85{3.7}else if s>=82{3.3}else if s>=78{3.0}else if s>=75{2.7}else if s>=72{2.3}else if s>=68{2.0}else if s>=65{1.7}else if s>=62{1.3}else if s>=60{1.0}else{0} }
+
+// MARK: 趋势图Sheet
+
+struct GradeTrendSheet: View {
+    let records: [ScoreRecord]
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        VStack {
+            HStack { Spacer(); Button("关闭") { dismiss() }.buttonStyle(.plain).padding() }
+            GradeTrendChart(records: records)
+            Spacer()
+        }
+        .frame(width: 600, height: 500)
+    }
+}

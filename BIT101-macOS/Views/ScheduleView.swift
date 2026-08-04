@@ -5,7 +5,7 @@ struct ScheduleView: View {
     @State private var events = [iCalEvent](); @State private var fd = Date()
     @State private var courses = [Course](); @State private var loading = false; @State private var err: String?
     @State private var wk = 1; @State private var tWk = 1; @State private var wks = [1]
-    @State private var tm = ""
+    @State private var tm = ""; @State private var icalURL = ""
     private let days = ["周一","周二","周三","周四","周五","周六","周日"]
 
     var body: some View {
@@ -34,6 +34,9 @@ struct ScheduleView: View {
             else { gridView }
         }
         .task { if net.isLoggedIn && events.isEmpty { await load() } }
+        .toolbar {
+            ToolbarItem { Button { importToCalendar() } label: { Label("导入日历", systemImage: "calendar.badge.plus") } }
+        }
     }
 
     var gridView: some View {
@@ -103,7 +106,7 @@ struct ScheduleView: View {
     func load() async {
         loading = true; err = nil
         do { let r = try await net.fetchSchedule(term: tm.isEmpty ? nil : tm)
-            await MainActor.run { events = r.events; fd = r.firstDay; wks = Set(events.map { wOf($0.startDate) }).sorted(); tWk = wks.last ?? 1; wk = 1; filter(); loading = false }
+            await MainActor.run { events = r.events; fd = r.firstDay; icalURL = r.icalURL; wks = Set(events.map { wOf($0.startDate) }).sorted(); tWk = wks.last ?? 1; wk = 1; filter(); loading = false }
         } catch let e { await MainActor.run { err = e.localizedDescription; loading = false } }
     }
     func filter() { courses = events.filter { wOf($0.startDate) == wk }.map { Course.from(iCalEvent: $0, color: CourseColorPool.color(for: $0.summary)) } }
@@ -114,4 +117,9 @@ struct ScheduleView: View {
         var t = [String](); for yy in stride(from: ay, through: 2020, by: -1) { t.append("\(yy)-\(yy+1)-1"); t.append("\(yy)-\(yy+1)-2") }; return t
     }
     func termName(_ t: String) -> String { let p = t.components(separatedBy: "-"); guard p.count >= 3 else { return t }; let season = p[2] == "1" ? "秋" : "春"; return "\(String(p[0].suffix(2)))-\(String(p[1].suffix(2)))\(season)" }
+
+    func importToCalendar() {
+        guard !icalURL.isEmpty else { return }
+        importScheduleToCalendar(icalURL: icalURL)
+    }
 }

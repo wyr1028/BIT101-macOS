@@ -5,6 +5,7 @@ import SwiftUI
 
 @main
 struct BIT101_macOSApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @ObservedObject var net = NetworkManager.shared
     @AppStorage("colorScheme") private var scheme = "system"
 
