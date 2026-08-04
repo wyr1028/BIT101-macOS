@@ -1,64 +1,71 @@
 import SwiftUI
 
 struct CourseReviewView: View {
-    @ObservedObject var networkManager = NetworkManager.shared
+    @ObservedObject var net = NetworkManager.shared
     @State private var courses: [CourseItem] = []
-    @State private var isLoading = false
-    @State private var errorMsg: String?
-    @State private var page = 0
-    @State private var hasMore = true
+    @State private var loading = false; @State private var err: String?
+    @State private var page = 0; @State private var more = true
+    @State private var search = ""; @State private var order = "rate"
 
     var body: some View {
         VStack(spacing: 0) {
-            if isLoading && courses.isEmpty {
-                Spacer(); ProgressView(); Spacer()
-            } else if let errorMsg, courses.isEmpty {
-                ContentUnavailableView("加载失败", systemImage: "wifi.slash", description: Text(errorMsg))
-            } else {
+            // 搜索栏 + 排序
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("搜索课程名/教师", text: $search)
+                    .textFieldStyle(.roundedBorder).frame(width: 200)
+                    .onSubmit { Task { await reload() } }
+                Picker("排序", selection: $order) {
+                    Text("评分").tag("rate"); Text("最新").tag("new"); Text("最热").tag("like")
+                }.frame(width: 80).onChange(of: order) { _, _ in Task { await reload() } }
+                Spacer()
+            }.padding(.horizontal, 20).padding(.vertical, 8)
+
+            Divider()
+
+            if loading && courses.isEmpty { Spacer(); ProgressView(); Spacer() }
+            else if let err, courses.isEmpty { ContentUnavailableView("加载失败", systemImage: "wifi.slash", description: Text(err)) }
+            else {
                 ScrollView {
-                    GlassEffectContainer(spacing: 10) {
-                        LazyVStack(spacing: 10) {
-                            ForEach(courses) { courseRow($0) }
-                            if hasMore { ProgressView().onAppear { Task { await loadMore() } } }
-                        }.padding(16)
-                    }
+                    LazyVStack(spacing: 8) {
+                        ForEach(courses) { courseRow($0) }
+                        if more { ProgressView().onAppear { Task { await loadMore() } } }
+                    }.padding(16)
                 }
             }
         }
-        .task { if networkManager.isLoggedIn { await reload() } }
+        .navigationTitle("课程评价")
+        .task { await reload() }
     }
 
-    private func courseRow(_ c: CourseItem) -> some View {
-        HStack(spacing: 14) {
+    func courseRow(_ c: CourseItem) -> some View {
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(c.name ?? "未知课程").font(.system(.body, design: .rounded).bold()).lineLimit(1)
-                Text(c.teachers_name ?? "").font(.caption).foregroundStyle(.secondary)
+                Text(c.name ?? "未知课程").font(.body.bold()).lineLimit(1)
+                HStack(spacing: 4) {
+                    if let n = c.number, !n.isEmpty { Text(n).font(.caption2).foregroundStyle(.tertiary).monospaced() }
+                    Text(c.teachers_name ?? "").font(.caption).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(String(format: "%.1f", c.rate ?? 0))
-                    .font(.system(.title3, design: .rounded).bold())
-                    .foregroundColor(rateColor(c.rate ?? 0))
-                HStack(spacing: 2) {
-                    Image(systemName: "star.fill").font(.system(size: 9))
-                    Text("\(c.comment_num ?? 0)评价").font(.caption2)
-                }.foregroundStyle(.secondary)
+                Text(String(format: "%.1f", c.rate ?? 0)).font(.title3.bold()).foregroundColor(rateC(c.rate ?? 0))
+                HStack(spacing: 2) { Image(systemName: "star.fill").font(.system(size:8)); Text("\(c.comment_num ?? 0)").font(.caption2) }.foregroundStyle(.secondary)
             }
         }
-        .padding(14)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+        .padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
+    func rateC(_ r: Double) -> Color { r>=8 ? .green : r>=6 ? .blue : r>=4 ? .orange : .red }
 
-    private func rateColor(_ r: Double) -> Color {
-        r >= 8 ? .green : r >= 6 ? .blue : r >= 4 ? .orange : .red
-    }
-
-    private func reload() async { isLoading = true; errorMsg = nil; page = 0; hasMore = true; await loadPage(0) }
-    private func loadMore() async { guard hasMore, !isLoading else { return }; await loadPage(page + 1) }
-    private func loadPage(_ p: Int) async {
+    func reload() async { loading=true;err=nil;page=0;more=true;await loadPage(0) }
+    func loadMore() async { guard more,!loading else{return};await loadPage(page+1) }
+    func loadPage(_ p: Int) async {
         do {
-            let items = try await networkManager.fetchCourses(page: p)
-            await MainActor.run { if p == 0 { courses = items } else { courses.append(contentsOf: items) }; hasMore = !items.isEmpty; page = p; isLoading = false }
-        } catch { await MainActor.run { if p == 0 { errorMsg = error.localizedDescription }; isLoading = false } }
+            let items = try await net.fetchCourses(page: p, order: order, search: search.isEmpty ? nil : search)
+            await MainActor.run {
+                if p==0 { courses=items } else { courses.append(contentsOf:items) }
+                more = !items.isEmpty; page = p; loading = false
+            }
+        } catch { await MainActor.run { if p==0 { err=error.localizedDescription }; loading=false } }
     }
 }

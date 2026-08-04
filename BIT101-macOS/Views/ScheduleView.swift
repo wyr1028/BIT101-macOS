@@ -1,6 +1,3 @@
-//
-//  ScheduleView.swift
-//
 import SwiftUI
 
 struct ScheduleView: View {
@@ -29,8 +26,7 @@ struct ScheduleView: View {
                         .buttonStyle(.plain).disabled(wk >= tWk)
                 }
                 Spacer()
-            }.padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 4)
-            Divider()
+            }.padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 10)
 
             if loading { Spacer(); ProgressView(); Spacer() }
             else if let err { errorView(err) }
@@ -43,26 +39,29 @@ struct ScheduleView: View {
     var gridView: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                Text("节次").font(.caption).foregroundStyle(.secondary).frame(width: 45)
-                ForEach(days, id: \.self) { d in
-                    Text(d).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 8)
-                        .background(Color.secondary.opacity(0.1)).cornerRadius(6)
+                Text("").frame(width: 45)
+                ForEach(0..<7, id: \.self) { i in
+                    VStack(spacing: 1) {
+                        Text(days[i]).font(.caption.weight(.medium))
+                        Text(dateStr(offset: i)).font(.system(size: 9)).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.08)).cornerRadius(6)
                 }
             }.padding(.horizontal, 12).padding(.top, 8)
-            Divider().padding(.bottom, 4)
 
             ScrollView {
                 HStack(alignment: .top, spacing: 6) {
                     VStack(spacing: 6) {
                         ForEach(1...13, id: \.self) { s in
-                            Text("\(s)").font(.system(.subheadline, design: .monospaced)).fontWeight(.bold).frame(width: 45, height: 60)
+                            Text("\(s)").font(.caption2.monospaced()).foregroundStyle(.tertiary).frame(width: 45, height: 54)
                         }
                     }
                     ForEach(1...7, id: \.self) { d in
                         ZStack(alignment: .top) {
                             VStack(spacing: 6) {
                                 ForEach(1...13, id: \.self) { _ in
-                                    RoundedRectangle(cornerRadius: 6).fill(d > 5 ? Color.secondary.opacity(0.03) : Color.secondary.opacity(0.05)).frame(height: 60)
+                                    RoundedRectangle(cornerRadius: 5).fill(d > 5 ? Color.secondary.opacity(0.02) : Color.secondary.opacity(0.04)).frame(height: 54)
                                 }
                             }
                             ForEach(courses.filter { $0.day == d }) { block($0) }
@@ -73,17 +72,25 @@ struct ScheduleView: View {
         }
     }
 
+    func dateStr(offset: Int) -> String {
+        let cal = Calendar.current
+        let mondayOffset = (wk - 1) * 7 + offset
+        guard let date = cal.date(byAdding: .day, value: mondayOffset, to: fd) else { return "" }
+        let f = DateFormatter(); f.dateFormat = "M/d"
+        return f.string(from: date)
+    }
+
     func block(_ c: Course) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(c.name).font(.system(size: 11, weight: .bold)).lineLimit(2)
-            Spacer(minLength: 2)
-            if !c.location.isEmpty { Text(c.location).font(.system(size: 9)).lineLimit(1) }
-            if !c.teacher.isEmpty { Text(c.teacher).font(.system(size: 9)).lineLimit(1) }
+        VStack(alignment: .leading, spacing: 1) {
+            Text(c.name).font(.system(size: 10, weight: .bold)).lineLimit(2)
+            if !c.location.isEmpty { Text(c.location).font(.system(size: 8)).lineLimit(1) }
+            if !c.teacher.isEmpty { Text(c.teacher).font(.system(size: 8)).foregroundStyle(.secondary).lineLimit(1) }
         }
-        .padding(4).frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: CGFloat(c.duration) * 60 + CGFloat(c.duration - 1) * 6)
-        .background(c.color.opacity(0.2)).overlay(RoundedRectangle(cornerRadius: 8).stroke(c.color.opacity(0.8), lineWidth: 1.5)).cornerRadius(8)
-        .offset(y: CGFloat(c.startSection - 1) * (60 + 6))
+        .padding(3).frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: CGFloat(c.duration) * 54 + CGFloat(c.duration - 1) * 6)
+        .background(c.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(c.color.opacity(0.5), lineWidth: 1))
+        .offset(y: CGFloat(c.startSection - 1) * (54 + 6))
     }
 
     func errorView(_ m: String) -> some View {
@@ -106,5 +113,5 @@ struct ScheduleView: View {
         let cal = Calendar.current; let y = cal.component(.year, from: Date()); let ay = cal.component(.month, from: Date()) >= 8 ? y : y - 1
         var t = [String](); for yy in stride(from: ay, through: 2020, by: -1) { t.append("\(yy)-\(yy+1)-1"); t.append("\(yy)-\(yy+1)-2") }; return t
     }
-    func termName(_ t: String) -> String { let p = t.components(separatedBy: "-"); guard p.count >= 3 else { return t }; return "\(String(p[0].suffix(2)))-\(String(p[1].suffix(2))) \(p[2]=="1" ? "秋" : "春")" }
+    func termName(_ t: String) -> String { let p = t.components(separatedBy: "-"); guard p.count >= 3 else { return t }; let season = p[2] == "1" ? "秋" : "春"; return "\(String(p[0].suffix(2)))-\(String(p[1].suffix(2)))\(season)" }
 }

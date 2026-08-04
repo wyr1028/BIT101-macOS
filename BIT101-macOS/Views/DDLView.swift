@@ -1,20 +1,24 @@
-//
-//  DDLView.swift
-//  BIT101-macOS
-//
-
 import SwiftUI
 
 struct DDLView: View {
+    @ObservedObject var net = NetworkManager.shared
+
     var body: some View {
-        ContentUnavailableView {
-            Label("暂无待办事项", systemImage: "clock.badge.checkmark")
-        } description: {
-            Text("DDL提醒功能需要学校教务系统接口支持\n该功能暂未开放，敬请期待")
+        VStack(spacing: 20) {
+            Image(systemName: "clock.badge.checkmark").font(.system(size: 40)).foregroundStyle(.secondary)
+            Text("DDL 提醒").font(.title2).foregroundStyle(.secondary)
+            Text("此功能需要学校乐学系统认证\n请在浏览器中登录乐学后同步日历")
+                .font(.callout).foregroundStyle(.tertiary).multilineTextAlignment(.center)
+            Button("打开乐学") {
+                if let url = URL(string: "https://lexue.bit.edu.cn") {
+                    NSWorkspace.shared.open(url)
+                }
+            }.buttonStyle(.bordered)
         }
-        .padding(40)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
-        .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.regularMaterial)
     }
 }
+
+// EmptyRoomView 在独立文件中定义
+// ExamView 在独立文件中定义

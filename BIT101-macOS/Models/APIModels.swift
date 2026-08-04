@@ -29,20 +29,18 @@ struct CheckLoginResponse: Codable {
     let msg: String?
 }
 
-/// 用户信息 Response（/user/info 返回 user + follow 信息）
+/// 用户信息 Response（/user/info 返回扁平结构）
 struct UserInfoResponse: Codable {
-    let user: UserAPI?
-    let following_num: Int64?
-    let follower_num: Int64?
-    let following: Bool?
-    let follower: Bool?
-    let own: Bool?
-    let msg: String?
+    let id: Int?
+    let nickname: String?
+    let motto: String?
+    let avatar: ImageAPI?        // {mid, url, low_url} 对象
+    let identity: IdentityAPI?   // {id, text, color} 对象
     
-    var nickname: String? { user?.nickname }
-    var motto: String? { user?.motto }
-    var avatarMid: String? { user?.avatar?.mid }
-    var identityName: String? { user?.identity?.text }
+    // 便捷访问
+    var avatarMid: String? { avatar?.mid }
+    var avatarURL: String? { avatar?.url }
+    var identityName: String? { identity?.text }
 }
 
 struct UserAPI: Codable {
@@ -60,7 +58,7 @@ struct ImageAPI: Codable {
 
 struct IdentityAPI: Codable {
     let id: Int?
-    let text: String?         // "普通用户"
+    let text: String?
     let color: String?
 }
 
@@ -206,4 +204,55 @@ struct PaperDetail: Codable {
 struct ClaimItem: Codable {
     let id: Int?
     let name: String?
+}
+
+// MARK: - 消息
+
+struct MessageItem: Codable, Identifiable {
+    let id: Int?
+    let text: String?
+    let link_obj: String?
+    let obj: String?
+    let from_user: UserAPI?
+    let update_time: String?
+    var identity: Int { id ?? 0 }
+}
+
+// MARK: - EditorJS 文章内容
+
+struct EditorJSContent: Codable {
+    let time: Int?
+    let blocks: [EditorJSBlock]?
+}
+
+struct EditorJSBlock: Codable, Identifiable {
+    let id: String?
+    let type: String?
+    let data: EditorJSBlockData?
+    var identity: String { id ?? UUID().uuidString }
+}
+
+struct EditorJSBlockData: Codable {
+    let text: String?           // header, paragraph
+    let level: Int?             // header
+    let style: String?          // list: "ordered"/"unordered"
+    let items: [String]?        // list
+    let code: String?           // code block
+    let caption: String?        // image, quote
+    let file: EditorJSFile?     // image, attaches
+    let title: String?          // warning
+    let message: String?        // warning
+    let content: [[String]]?    // table
+    let withHeadings: Bool?     // table
+    
+    // 提供 text 或 code 的优先内容
+    var displayText: String {
+        text ?? code ?? items?.joined(separator: "\n") ?? ""
+    }
+}
+
+struct EditorJSFile: Codable {
+    let url: String?
+    let name: String?
+    let size: Int?
 }

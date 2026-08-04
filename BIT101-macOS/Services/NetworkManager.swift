@@ -154,7 +154,7 @@ class NetworkManager: ObservableObject {
     // MARK: - 3. 成绩查询
     
     func fetchScores() async throws -> [[String]] {
-        guard let url = URL(string: "\(baseURL)/score?detail=true") else {
+        guard let url = URL(string: "\(baseURL)/score") else {
             throw URLError(.badURL)
         }
         
@@ -224,10 +224,13 @@ class NetworkManager: ObservableObject {
         }
         request.setValue(webvpnCookie, forHTTPHeaderField: "webvpn-cookie")
         
-        print("🚀 请求课表 URL...")
+        print("🚀 请求课表 URL: \(urlString)")
         let (scheduleData, scheduleResp) = try await URLSession.shared.data(for: request)
         
-        guard let httpResponse = scheduleResp as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+        let status = (scheduleResp as? HTTPURLResponse)?.statusCode ?? 0
+        print("📡 课表响应状态: \(status)")
+        guard status == 200 else {
+            if let body = String(data: scheduleData, encoding: .utf8) { print("📦 课表错误: \(body.prefix(200))") }
             throw URLError(.badServerResponse)
         }
         
@@ -279,7 +282,24 @@ class NetworkManager: ObservableObject {
         print("✅ 登录状态有效")
     }
     
-    // MARK: - 6. 获取用户信息
+    // MARK: - 6. 更新用户信息
+    
+    func updateUserInfo(nickname: String? = nil, motto: String? = nil, avatarMid: String? = nil) async throws {
+        guard let url = URL(string: "\(baseURL)/user/info") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
+        var body: [String: String] = [:]
+        if let n = nickname { body["nickname"] = n }
+        if let m = motto { body["motto"] = m }
+        if let a = avatarMid { body["avatar"] = a }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (_, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+    }
+    
+    // MARK: - 7. 上传图片
     
     func fetchUserInfo() async throws -> UserInfoResponse {
         guard let url = URL(string: "\(baseURL)/user/info") else {
@@ -336,8 +356,10 @@ class NetworkManager: ObservableObject {
     
     // MARK: - 9. 课程评价
     
-    func fetchCourses(page: Int = 0, order: String = "rate") async throws -> [CourseItem] {
-        guard let url = URL(string: "\(baseURL)/courses?page=\(page)&order=\(order)") else {
+    func fetchCourses(page: Int = 0, order: String = "rate", search: String? = nil) async throws -> [CourseItem] {
+        var urlStr = "\(baseURL)/courses?page=\(page)&order=\(order)"
+        if let s = search, !s.isEmpty { urlStr += "&search=\(s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s)" }
+        guard let url = URL(string: urlStr) else {
             throw URLError(.badURL)
         }
         var req = URLRequest(url: url)
@@ -357,9 +379,9 @@ class NetworkManager: ObservableObject {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
         req.httpBody = try? JSONSerialization.data(withJSONObject: ["obj": obj])
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (likeData, _) = try await URLSession.shared.data(for: req)
         struct LikeResp: Codable { let like: Bool; let like_num: Int }
-        let r = try JSONDecoder().decode(LikeResp.self, from: data)
+        let r = try JSONDecoder().decode(LikeResp.self, from: likeData)
         return (r.like, r.like_num)
     }
     
@@ -370,8 +392,8 @@ class NetworkManager: ObservableObject {
         var req = URLRequest(url: url)
         req.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
         req.timeoutInterval = 10
-        let (data, _) = try await URLSession.shared.data(for: req)
-        return try JSONDecoder().decode([CommentItem].self, from: data)
+        let (cmtData, _) = try await URLSession.shared.data(for: req)
+        return try JSONDecoder().decode([CommentItem].self, from: cmtData)
     }
     
     // MARK: - 12. 帖子详情
@@ -380,8 +402,8 @@ class NetworkManager: ObservableObject {
         guard let url = URL(string: "\(baseURL)/posters/\(id)") else { throw URLError(.badURL) }
         var req = URLRequest(url: url)
         req.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
-        let (data, _) = try await URLSession.shared.data(for: req)
-        return try JSONDecoder().decode(PosterDetail.self, from: data)
+        let (posterData, _) = try await URLSession.shared.data(for: req)
+        return try JSONDecoder().decode(PosterDetail.self, from: posterData)
     }
     
     // MARK: - 13. 文章详情
@@ -392,7 +414,93 @@ class NetworkManager: ObservableObject {
         return try JSONDecoder().decode(PaperDetail.self, from: data)
     }
     
-    // MARK: - 14. 获取课程历史均分
+    // MARK: - 14. 发送评论
+    
+    func sendComment(obj: String, text: String, replyObj: String? = nil, replyUid: Int? = nil) async throws {
+        guard let url = URL(string: "\(baseURL)/reaction/comments") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
+        var body: [String: Any] = ["obj": obj, "text": text]
+        if let ro = replyObj { body["reply_obj"] = ro }
+        if let ru = replyUid { body["reply_uid"] = ru }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (_, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+    }
+    
+    // MARK: - 15. 消息
+    
+    func fetchMessages() async throws -> ([MessageItem], Int) {
+        guard let url = URL(string: "\(baseURL)/messages") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
+        let (msgData, _) = try await URLSession.shared.data(for: req)
+        let msgs = try JSONDecoder().decode([MessageItem].self, from: msgData)
+        // 获取未读数
+        var unread = 0
+        if let u = URL(string: "\(baseURL)/messages/unread_num") {
+            var r = URLRequest(url: u); r.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
+            if let (d, _) = try? await URLSession.shared.data(for: r) {
+                struct UR: Codable { let num: Int }
+                unread = (try? JSONDecoder().decode(UR.self, from: d))?.num ?? 0
+            }
+        }
+        return (msgs, unread)
+    }
+    
+    // MARK: - 15. 发帖
+    
+    func createPoster(title: String, text: String, anonymous: Bool = false, tags: [String] = []) async throws {
+        guard let url = URL(string: "\(baseURL)/posters") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(fakeCookie, forHTTPHeaderField: "fake-cookie")
+        let body: [String: Any] = ["title": title, "text": text, "anonymous": anonymous, "tags": tags]
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (_, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+    }
+    
+    // MARK: - 16. 可信成绩单
+    
+    func fetchScoreReport() async throws -> [String] {
+        guard let url = URL(string: "\(baseURL)/score/report") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.setValue(webvpnCookie, forHTTPHeaderField: "webvpn-cookie")
+        let (reportData, _) = try await URLSession.shared.data(for: req)
+        struct Resp: Codable { let data: [String]? }
+        return (try? JSONDecoder().decode(Resp.self, from: reportData))?.data ?? []
+    }
+    
+    // MARK: - 16. 学校教务直连（空教室）
+    
+    func fetchEmptyClassrooms(building: String, weekday: Int, section: Int) async throws -> [String] {
+        let wvpn = "https://webvpn.bit.edu.cn/https/77726476706e69737468656265737421faef5b842238695c720999bcd6572a216b231105adc27d"
+        guard let url = URL(string: "\(wvpn)/jwapp/sys/functionPageAddUrl/emptyClassroom.do") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.setValue(webvpnCookie, forHTTPHeaderField: "Cookie")
+        req.timeoutInterval = 10
+        let (_, _) = try await URLSession.shared.data(for: req)
+        // 学校返回HTML，需要解析
+        return []
+    }
+    
+    // MARK: - 17. 考试查询
+    
+    func fetchExams(term: String? = nil) async throws -> [[String]] {
+        let wvpn = "https://webvpn.bit.edu.cn/https/77726476706e69737468656265737421faef5b842238695c720999bcd6572a216b231105adc27d"
+        guard let url = URL(string: "\(wvpn)/jwapp/sys/studentExamQuery/examQuery.do") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.setValue(webvpnCookie, forHTTPHeaderField: "Cookie")
+        req.timeoutInterval = 10
+        let (_, _) = try await URLSession.shared.data(for: req)
+        return []
+    }
+    
+    // MARK: - 18. 获取课程历史均分
     
     func fetchCourseHistories(courseNumbers: [String]) async -> [String: CourseHistoryItem] {
         // 使用 fake-cookie 进行认证
