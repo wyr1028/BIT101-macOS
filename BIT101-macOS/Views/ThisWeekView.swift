@@ -18,7 +18,7 @@ struct ThisWeekView: View {
                 if loading { ProgressView().controlSize(.small) }
             }.padding(.horizontal, 16).padding(.vertical, 10)
 
-            Divider()
+            GlassDivider()
 
             if weekCourses.isEmpty && !loading {
                 Text("登录后查看本周课程").font(.caption).foregroundStyle(.secondary).padding(20)
@@ -28,7 +28,7 @@ struct ThisWeekView: View {
                         ForEach(weekCourses, id: \.day) { item in
                             HStack(alignment: .top, spacing: 10) {
                                 VStack(spacing: 2) {
-                                    Text("周\(dayNames[item.day % 7])").font(.caption.bold())
+                                    Text("周\(dayNames[item.day - 1])").font(.caption.bold())
                                     Text(item.date).font(.system(size: 10)).foregroundStyle(.secondary)
                                 }.frame(width: 40)
 
@@ -37,8 +37,9 @@ struct ThisWeekView: View {
                                 } else {
                                     VStack(alignment: .leading, spacing: 2) {
                                         ForEach(item.courses, id: \.summary) { c in
-                                            HStack(spacing: 4) {
-                                                Circle().fill(courseColor(c.summary)).frame(width: 5, height: 5)
+                                            HStack(spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                                    .fill(courseColor(c.summary)).frame(width: 3, height: 26)
                                                 Text(c.summary).font(.caption).lineLimit(1)
                                                 Spacer()
                                                 Text(timeStr(c.startDate)).font(.caption2).foregroundStyle(.secondary)
@@ -48,14 +49,14 @@ struct ThisWeekView: View {
                                 }
                                 Spacer()
                             }.padding(.horizontal, 12).padding(.vertical, 6)
-                            Divider().padding(.leading, 50)
+                            GlassDivider().padding(.leading, 50)
                         }
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .glassSurface(14)
         .task { if net.isLoggedIn { await load() } }
     }
 

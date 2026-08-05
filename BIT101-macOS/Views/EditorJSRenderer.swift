@@ -51,7 +51,8 @@ struct EditorJSRenderer: View {
             if let code = block.data?.code {
                 Text(code).font(.system(.callout, design: .monospaced))
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous).strokeBorder(.secondary.opacity(0.15), lineWidth: 1))
             }
         case "quote":
             VStack(alignment: .leading, spacing: 4) {
@@ -66,7 +67,7 @@ struct EditorJSRenderer: View {
             .overlay(Rectangle().fill(.secondary.opacity(0.3)).frame(width: 3), alignment: .leading)
             .padding(.vertical, 4)
         case "delimiter":
-            Divider().padding(.vertical, 4)
+            GlassDivider().padding(.vertical, 4)
         case "warning":
             VStack(alignment: .leading, spacing: 4) {
                 if let title = block.data?.title {
@@ -80,7 +81,10 @@ struct EditorJSRenderer: View {
                 }
             }
             .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+            .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(.orange.opacity(0.25), lineWidth: 1))
+        case "image":
+            imageBlock(block)
         case "table":
             if let rows = block.data?.content {
                 VStack(spacing: 0) {
@@ -89,19 +93,56 @@ struct EditorJSRenderer: View {
                             ForEach(row, id: \.self) { cell in
                                 Text(cell).font(.caption).padding(.horizontal, 8).padding(.vertical, 4)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(ri == 0 ? Color.secondary.opacity(0.1) : Color.clear)
+                                    .background(ri == 0 ? Color.primary.opacity(0.06) : Color.clear)
                             }
                         }
-                        Divider()
+                        GlassDivider()
                     }
                 }
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.2)))
+                .background(.ultraThinMaterial.opacity(0.5), in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous).strokeBorder(.secondary.opacity(0.2), lineWidth: 1))
+            }
+        case "attaches", "file":
+            if let f = block.data?.file, let u = f.url, let url = imageURL(u) {
+                AsyncImage(url: url) { img in
+                    img.resizable().scaledToFit().frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                } placeholder: {
+                    Label(f.name ?? "附件", systemImage: "paperclip").font(.callout).foregroundStyle(.secondary)
+                }
             }
         default:
             if let text = block.data?.displayText, !text.isEmpty {
                 Text(text).font(.body)
             }
         }
+    }
+
+    @ViewBuilder
+    func imageBlock(_ block: EditorJSBlock) -> some View {
+        let urlStr = (block.data?.file?.url) ?? block.data?.url
+        if let u = urlStr, let url = imageURL(u) {
+            VStack(alignment: .leading, spacing: 4) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable().scaledToFit().frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                    case .failure:
+                        Label("图片加载失败", systemImage: "photo").font(.callout).foregroundStyle(.secondary)
+                    default:
+                        ProgressView().frame(maxWidth: .infinity).padding(12)
+                    }
+                }
+                if let cap = block.data?.caption, !cap.isEmpty {
+                    Text(cap).font(.caption).foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    /// 将 BIT101 相对路径的图片地址补全为绝对 URL
+    func imageURL(_ s: String) -> URL? {
+        if s.hasPrefix("http") { return URL(string: s) }
+        return URL(string: "https://bit101.flwfdd.xyz" + (s.hasPrefix("/") ? s : "/" + s))
     }
 }
 

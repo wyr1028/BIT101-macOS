@@ -71,8 +71,9 @@ struct PosterItem: Codable, Identifiable {
     let text: String?
     let update_time: String?
     let uid: Int?
-    let like_num: Int?
-    let comment_num: Int?
+    var like_num: Int?
+    var like: Bool?
+    var comment_num: Int?
     let user: UserAPI?
     let tags: [String]?
     let anonymous: Bool?
@@ -120,7 +121,7 @@ struct ScheduleResponse: Codable {
 }
 
 /// iCal 解析后的课程事件
-struct iCalEvent {
+struct iCalEvent: Codable {
     let summary: String        // 课程名
     let location: String       // 教室
     let teacher: String        // 教师（从 description 提取）
@@ -130,6 +131,14 @@ struct iCalEvent {
     let startSection: Int      // 开始节次（从时间推算）
     let duration: Int          // 持续节数
     let weekDescription: String // 上课周次描述
+}
+
+/// 课表缓存结构
+struct ScheduleCache: Codable {
+    let events: [iCalEvent]
+    let firstDay: Date
+    let term: String
+    let icalURL: String
 }
 
 // MARK: - 课程历史模块
@@ -177,14 +186,15 @@ struct PosterDetail: Codable {
     let update_time: String?
     let uid: Int?
     let anonymous: Bool?
-    let like_num: Int?
-    let comment_num: Int?
+    var like_num: Int?
+    var comment_num: Int?
     let user: UserAPI?
     let images: [ImageAPI]?
     let tags: [String]?
-    let like: Bool?
+    var like: Bool?
     let own: Bool?
     let claim: ClaimItem?
+    var identity: Int { id ?? 0 }
 }
 
 /// 文章详情
@@ -240,6 +250,7 @@ struct EditorJSBlockData: Codable {
     let code: String?           // code block
     let caption: String?        // image, quote
     let file: EditorJSFile?     // image, attaches
+    let url: String?            // image（部分实现直接给 url）
     let title: String?          // warning
     let message: String?        // warning
     let content: [[String]]?    // table
